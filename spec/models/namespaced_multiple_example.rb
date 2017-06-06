@@ -25,4 +25,17 @@ class NamespacedMultipleExample
       transitions :from => :approved, :to => :unapproved
     end
   end
+
+  aasm(:car, namespace: :car, namespace_event_methods: true) do
+    state :unsold, :initial => true
+    state :sold
+
+    event :sell do
+      transitions :from => :unsold, :to => :sold
+    end
+
+    event :return do
+      transitions :from => :sold, :to => :unsold
+    end
+  end
 end

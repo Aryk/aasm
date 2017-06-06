@@ -45,6 +45,9 @@ module AASM
       # Set to true to namespace reader methods and constants
       configure :namespace, false
 
+      # Set to true to namespace events methods. :namespace must be set.
+      configure :namespace_event_methods, false
+
       # Configure a logger, with default being a Logger to STDERR
       configure :logger, Logger.new(STDERR)
 
@@ -114,19 +117,26 @@ module AASM
       aasm_name = @name.to_sym
       event = name.to_sym
 
+      suffix = if @state_machine.config.namespace_event_methods
+        # If event name is 'fix' and namespace is 'videos', then method becomes 'may_fix_videos?'
+        namespace? ? "_#{namespace}" : raise("namespace_event_methods enabled, but not namespace provided.")
+      end
+
+      method_name = "#{name}#{suffix}"
+
       # an addition over standard aasm so that, before firing an event, you can ask
       # may_event? and get back a boolean that tells you whether the guard method
       # on the transition will let this happen.
-      safely_define_method klass, "may_#{name}?", ->(*args) do
+      safely_define_method klass, "may_#{method_name}?", ->(*args) do
         aasm(aasm_name).may_fire_event?(event, *args)
       end
 
-      safely_define_method klass, "#{name}!", ->(*args, &block) do
+      safely_define_method klass, "#{method_name}!", ->(*args, &block) do
         aasm(aasm_name).current_event = :"#{name}!"
         aasm_fire_event(aasm_name, event, {:persist => true}, *args, &block)
       end
 
-      safely_define_method klass, name, ->(*args, &block) do
+      safely_define_method klass, method_name, ->(*args, &block) do
         aasm(aasm_name).current_event = event
         aasm_fire_event(aasm_name, event, {:persist => false}, *args, &block)
       end
@@ -203,11 +213,11 @@ module AASM
     def safely_define_method(klass, method_name, method_definition)
       # Warn if method exists and it did not originate from an enum
       if klass.method_defined?(method_name) &&
-         ! ( @state_machine.config.enum &&
-             klass.respond_to?(:defined_enums) &&
-             klass.defined_enums.values.any?{ |methods|
-                 methods.keys{| enum | enum + '?' == method_name }
-             })
+        ! ( @state_machine.config.enum &&
+          klass.respond_to?(:defined_enums) &&
+          klass.defined_enums.values.any?{ |methods|
+            methods.keys{| enum | enum + '?' == method_name }
+          })
         unless AASM::Configuration.hide_warnings
           @state_machine.config.logger.warn "#{klass.name}: overriding method '#{method_name}'!"
         end

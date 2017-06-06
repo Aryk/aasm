@@ -32,6 +32,9 @@ module AASM
     # namespace reader methods and constants
     attr_accessor :namespace
 
+    # Set to true to namespace events methods. :namespace must be set.
+    attr_accessor :namespace_event_methods
+
     # Configure a logger, with default being a Logger to STDERR
     attr_accessor :logger
 
